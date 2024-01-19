@@ -210,7 +210,7 @@ namespace SQL
                     break;
 
                 default:
-                    Console.WriteLine($"Error: Invalid operation '{operation}'. Supported: 'enum', 'gethash'");
+                    Console.WriteLine($"Error: Invalid operation '{operation}'. Supported: 'enum', 'gethash', 'cmd'");
                     DisplayUsage();
                     break;
             }
