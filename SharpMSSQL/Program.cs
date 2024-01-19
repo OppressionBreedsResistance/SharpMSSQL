@@ -167,7 +167,7 @@ namespace SQL
             Console.WriteLine("  <dbName>       Database name (required)");
             Console.WriteLine("  <operation>    Operation (required). Supported: 'enum', 'gethash', 'cmd'");
             Console.WriteLine("  gethash <hashServer>   Server to send svc hash (probably your Kali Linux'");
-            Console.WriteLine("  cmd <command>   Command to be executed using xp_cmdshell");
+            Console.WriteLine("  cmd <command>   Command to be executed using xp_cmdshell or OLE");
         }
 
 
